@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suivi LEGO Disney</title>
+<style>
+:root{--bg:#eef1f5;--ink:#14202b;--mute:#5b6b7a;--line:#cfd7e0;--card:#fff;--soon:#b3261e;--mid:#9a6200}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1720;--ink:#e6edf3;--mute:#93a3b3;--line:#27333f;--card:#16212c;--soon:#ff8a80;--mid:#f2b45a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:20px}
+h1{font-size:1.5rem;margin:0 0 4px}
+p.sub{margin:0 0 16px;color:var(--mute)}
+#promos{margin:0 0 16px}#promos b{color:var(--soon)}
+.bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+input,select{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
+.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+table{border-collapse:collapse;width:100%;min-width:1300px}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{cursor:pointer;position:sticky;top:0;background:var(--card);font-weight:600}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+.soon{color:var(--soon);font-weight:600}.mid{color:var(--mid);font-weight:600}
+small{color:var(--mute)}
+:focus-visible{outline:2px solid var(--soon);outline-offset:2px}
+</style>
+</head>
+<body>
+<h1>Suivi LEGO Disney</h1>
+<p class="sub" id="maj">Chargement…</p>
+<div id="promos"></div>
+<div class="bar">
+  <input id="q" placeholder="Rechercher un set ou un numéro" aria-label="Rechercher">
+  <select id="f" aria-label="Filtrer">
+    <option value="">Tous les sets</option>
+    <option value="eol">Retrait proche</option>
+  </select>
+</div>
+<div class="wrap"><table><thead><tr id="head"></tr></thead><tbody id="body"></tbody></table></div>
+<p><small>Prix : boutiques françaises relevées par Brickfact, livraison incluse. Annonces : eBay.fr, vendeurs situés en France. « Vendus » compte les annonces visibles la semaine précédente et disparues depuis : c’est une estimation, qui inclut aussi les retraits d’annonces. ⏳ = retrait proche.</small></p>
+<script>
+const SU=/carrefour|leclerc|auchan|intermarch|casino|cora|super u/i;
+const pick=(r,re)=>{const v=Object.entries(r.shops||{}).filter(([k])=>re.test(k)).map(([,x])=>x);return v.length?Math.min(...v):null};
+const f2=x=>x==null?"—":x.toFixed(2);
+const fd=s=>s?new Date(s).toLocaleDateString("fr-FR"):null;
+const ex=r=>{if(r.exit_date)return new Date(r.exit_date);const m=/\((\d{2})\/(\d{4})\)/.exec(r.exit||"");return m?new Date(+m[2],+m[1]-1,1):null};
+const mo=r=>{const d=ex(r);return d?(d-new Date())/2.63e9:null};
+const C=[
+["Set",r=>r.num,r=>r.num,0],["Nom",r=>r.name,r=>r.name,0],
+["Sortie",r=>fd(r.launch_date)||r.launch||"—",r=>r.launch_date||(r.launch||"").split("/").reverse().join("-"),0],
+["Retrait",r=>fd(r.exit_date)||r.exit||"—",r=>ex(r)||new Date(9e12),0],
+["Prix LEGO (€)",r=>f2(r.rrp),r=>r.rrp||0,1],
+["Meilleur prix (€)",r=>f2(r.best),r=>r.best||1e9,1],
+["Remise",r=>r.pct?`−${r.pct} %`:"—",r=>-(r.pct||0),1],
+["Fnac (€)",r=>f2(pick(r,/fnac/i)),r=>pick(r,/fnac/i)??1e9,1],
+["Cultura (€)",r=>f2(pick(r,/cultura/i)),r=>pick(r,/cultura/i)??1e9,1],
+["Grandes surfaces (€)",r=>f2(pick(r,SU)),r=>pick(r,SU)??1e9,1],
+["Neuf : annonces",r=>r.new.count??"—",r=>r.new.count??-1,1],
+["Neuf : min (€)",r=>f2(r.new.min),r=>r.new.min??1e9,1],
+["Neuf vendus / sem.",r=>r.new.gone7,r=>r.new.gone7,1],
+["Occasion : annonces",r=>r.used.count??"—",r=>r.used.count??-1,1],
+["Occasion : min (€)",r=>f2(r.used.min),r=>r.used.min??1e9,1],
+["Occasion vendus / sem.",r=>r.used.gone7,r=>r.used.gone7,1]];
+let rows=[],key=3,dir=1;
+function draw(){
+ const q=document.getElementById("q").value.toLowerCase(),f=document.getElementById("f").value;
+ const v=rows.filter(r=>(r.num+r.name).toLowerCase().includes(q)&&(!f||r.eol_soon));
+ v.sort((a,b)=>{const x=C[key][2](a),y=C[key][2](b);return (x>y?1:x<y?-1:0)*dir});
+ document.getElementById("body").innerHTML=v.map(r=>"<tr>"+C.map(([t,g,,n],i)=>{
+  let c=n?" class=n":"",val=g(r);
+  if(i==3){const m=mo(r);if(m!=null)c=m<=3?" class=soon":m<=6?" class=mid":"";}
+  if(i==1&&r.eol_soon)val="⏳ "+val;
+  return `<td${c}>${val}</td>`}).join("")+"</tr>").join("");
+}
+fetch("data.json").then(r=>r.json()).then(d=>{
+ rows=d.sets;document.getElementById("maj").textContent=`${rows.length} sets · mise à jour du ${d.updated}`;
+ document.getElementById("head").innerHTML=C.map(([t],i)=>`<th data-k="${i}" tabindex="0">${t}</th>`).join("");
+ document.querySelectorAll("th").forEach(th=>{const go=()=>{const k=+th.dataset.k;key==k?dir*=-1:(key=k,dir=1);draw()};
+  th.onclick=go;th.onkeydown=e=>e.key=="Enter"&&go()});
+ draw();
+}).catch(()=>document.getElementById("maj").textContent="Aucune donnée pour l’instant : lancez la mise à jour une première fois.");
+fetch("promos.json").then(r=>r.json()).then(p=>{
+ const e=s=>String(s).replace(/[<>&"]/g,"");let h="";
+ const t=p.items.sort((a,b)=>b.pct-a.pct);
+ if(t.length)h+=`<b>Promos du jour</b> (relevé du ${e(p.updated)})<br>`+t.map(i=>`${i.eol?"⏳ ":""}${e(i.num)} ${e(i.name)} : ${i.price.toFixed(2)} € (−${i.pct} %)`).join("<br>");
+ (p.jouets||[]).forEach(j=>{h+=`<br><br><b>${e(j.enseigne)}</b> : ${e(j.libelle)}, jusqu’au ${e(j.au||"?")}<br>`+j.sets.map(s=>`${s.eol?"⏳ ":""}${e(s.num)} ${e(s.name)} : ${s.net.toFixed(2)} € net (−${s.pct} %)`).join("<br>")});
+ document.getElementById("promos").innerHTML=h;
+}).catch(()=>{});
+document.getElementById("q").oninput=draw;document.getElementById("f").onchange=draw;
+</script>
+</body>
+</html>
