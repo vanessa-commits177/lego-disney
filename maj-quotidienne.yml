@@ -1,4 +1,4 @@
-Name: maj-quotidienne
+name: maj-quotidienne
 on:
   schedule:
     - cron: "0 5 * * *"   # tous les jours vers 6 h/7 h, heure de Paris : promos chaque jour, le reste le mardi
