@@ -1,1 +1,28 @@
-
+name: maj-quotidienne
+on:
+  schedule:
+    - cron: "0 5 * * *"   # tous les jours vers 6 h/7 h, heure de Paris : promos chaque jour, le reste le mardi
+  workflow_dispatch:       # bouton « Run workflow » pour un premier lancement manuel
+permissions:
+  contents: write
+jobs:
+  maj:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - run: python update.py
+        env:
+          BRICKSET_KEY: ${{ secrets.BRICKSET_KEY }}
+          EBAY_ID: ${{ secrets.EBAY_ID }}
+          EBAY_SECRET: ${{ secrets.EBAY_SECRET }}
+          FULL: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
+      - run: |
+          git config user.name "maj-auto"
+          git config user.email "maj-auto@users.noreply.github.com"
+          git add -A
+          git commit -m "Mise à jour $(date +%F)" || exit 0
+          git push
