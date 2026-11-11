@@ -1,1 +1,37 @@
-[]
+name: maj-quotidienne
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+  issues: write
+jobs:
+  maj:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - run: python update.py
+        env:
+          EBAY_ID: ${{ secrets.EBAY_ID }}
+          EBAY_SECRET: ${{ secrets.EBAY_SECRET }}
+          BRICKSET_KEY: ${{ secrets.BRICKSET_KEY }}
+          BRICKSET_USER: ${{ secrets.BRICKSET_USER }}
+          BRICKSET_PASS: ${{ secrets.BRICKSET_PASS }}
+          FULL: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
+      - name: Alerte par issue GitHub
+        if: hashFiles('alerts.md') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue create --title "Alerte LEGO Disney $(date +%F)" --body-file alerts.md
+      - run: |
+          rm -f alerts.md
+          git config user.name "maj-auto"
+          git config user.email "maj-auto@users.noreply.github.com"
+          git add -A
+          git commit -m "Mise a jour $(date +%F)" || exit 0
+          git push
