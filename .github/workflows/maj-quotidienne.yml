@@ -1,5 +1,5 @@
 name: maj-quotidienne
-on:
+"on":
   schedule:
     - cron: "0 5 * * *"   # tous les jours vers 6 h/7 h, heure de Paris : promos chaque jour, le reste le mardi
   workflow_dispatch:       # bouton « Run workflow » pour un premier lancement manuel
